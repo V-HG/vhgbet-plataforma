@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # O Banco de Dados Principal (Dinheiro/Usuários)
+  postgres:
+    image: postgres:15-alpine
+    container_name: vhgbet_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: vhgbet_core
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vhgbet_net
+
+  # O Banco de Memória (Velocidade/Sessões/Filas)
+  redis:
+    image: redis:alpine
+    container_name: vhgbet_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - vhgbet_net
+
+# Persistência de dados (para não perder nada se reiniciar o container)
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  vhgbet_net:
+    driver: bridge
