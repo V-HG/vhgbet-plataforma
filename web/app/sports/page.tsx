@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { ArrowLeft, Trophy, DollarSign, Timer, Loader2 } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
 
 // Dados Fictícios de Jogos (Mock)
 const MATCHES = [

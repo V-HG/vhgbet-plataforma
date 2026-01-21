@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { Gamepad2, Wallet, LogOut, User, Trophy, ShieldAlert } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
 
 export default function Home() {
   const [balance, setBalance] = useState(0);

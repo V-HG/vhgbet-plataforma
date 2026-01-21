@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { ArrowLeft, Copy, CheckCircle, Smartphone, Loader2, Wallet } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
 
 export default function Deposit() {
   const [amount, setAmount] = useState<string>("");

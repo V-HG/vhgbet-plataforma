@@ -4,7 +4,7 @@ import { useState } from "react";
 import axios from "axios";
 import { User, Lock, FileText, ArrowRight, Loader2 } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
 
 export default function Register() {
   const [formData, setFormData] = useState({ name: "", cpf: "", password: "" });

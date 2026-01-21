@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { ArrowLeft, Loader2, Gamepad2 } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
 const BET_AMOUNT = 5.00;
 
 export default function TigerGame() {
