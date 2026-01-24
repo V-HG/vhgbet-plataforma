@@ -1,25 +1,21 @@
-import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt'; // Importante para criptografar senha
+import * as bcrypt from 'bcrypt'; 
 
 import { User } from './entities/user.entity';
-import { Wallet } from '../wallet/entities/wallet.entity'; // Ajuste o caminho se necessário
+import { Wallet } from '../wallet/entities/wallet.entity'; 
 import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
-  findOne(arg0: { where: { cpf: string; }; }) {
-    throw new Error('Method not implemented.');
-  }
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
   ) {}
 
-  // 1. Cria usuário novo (Com senha segura e carteira zerada)
+  // 1. Cria usuário novo (Login Seguro)
   async create(createUserDto: CreateUserDto) {
-    // Verifica se já existe (usando usersRepository correto)
     const existingUser = await this.usersRepository.findOne({ 
       where: { cpf: createUserDto.cpf } 
     });
@@ -28,38 +24,59 @@ export class UsersService {
       throw new ConflictException('CPF já cadastrado na plataforma.');
     }
 
-    // Criptografia da senha
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
-    // Cria o objeto do usuário
     const newUser = this.usersRepository.create({
       name: createUserDto.name,
       cpf: createUserDto.cpf,
       password: hashedPassword,
-      wallet: new Wallet() // A mágica: Cria a carteira automaticamente aqui
+      wallet: new Wallet() 
     });
 
     try {
-      // Salva no banco
       const savedUser = await this.usersRepository.save(newUser);
-      
-      // Remove a senha do retorno para segurança
       const { password, ...result } = savedUser;
       return result;
-
     } catch (error) {
-      console.error("ERRO REAL DO BANCO:", error);
-      throw new BadRequestException('Erro ao criar usuário. Verifique os dados.');
+      console.error("ERRO BANCO:", error);
+      throw new BadRequestException('Erro ao criar usuário.');
     }
   }
 
-  // 2. Busca por CPF (Unificado e corrigido)
-  // Útil para login e para validações internas
+  // 2. Busca por CPF (Usado no Login)
   async findByCpf(cpf: string): Promise<User | null> {
     return this.usersRepository.findOne({ 
       where: { cpf: cpf },
-      relations: ['wallet'] // Traz a carteira junto (importante para ver saldo)
+      relations: ['wallet'] 
     });
+  }
+
+  // --- MÉTODOS DO ADMIN (QUE TINHAM SUMIDO) ---
+
+  // 3. Listar todos os usuários
+  async findAll() {
+    return this.usersRepository.find();
+  }
+
+  // 4. Promover usuário a Admin
+  async promoteToAdmin(cpf: string) {
+    const user = await this.findByCpf(cpf);
+    if (!user) {
+        throw new NotFoundException('Usuário não encontrado para promover.');
+    }
+
+    user.isAdmin = true;
+    return this.usersRepository.save(user);
+  }
+
+  // 5. Estatísticas do Sistema
+  async getSystemStats() {
+    const totalUsers = await this.usersRepository.count();
+    // Podemos adicionar soma de saldos aqui no futuro
+    return { 
+        totalUsers: totalUsers,
+        active: true 
+    };
   }
 }
