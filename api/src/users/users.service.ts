@@ -1,81 +1,65 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt'; // Importante para criptografar senha
+
 import { User } from './entities/user.entity';
+import { Wallet } from '../wallet/entities/wallet.entity'; // Ajuste o caminho se necessário
 import { CreateUserDto } from './dto/create-user.dto';
-import * as bcrypt from 'bcrypt';
-import { Wallet } from 'src/wallet/entities/wallet.entity';
 
 @Injectable()
 export class UsersService {
+  findOne(arg0: { where: { cpf: string; }; }) {
+    throw new Error('Method not implemented.');
+  }
   constructor(
     @InjectRepository(User)
-    private userRepo: Repository<User>,
+    private usersRepository: Repository<User>,
   ) {}
 
   // 1. Cria usuário novo (Com senha segura e carteira zerada)
   async create(createUserDto: CreateUserDto) {
-    const existingUser = await this.userRepo.findOne({ where: { cpf: createUserDto.cpf } });
+    // Verifica se já existe (usando usersRepository correto)
+    const existingUser = await this.usersRepository.findOne({ 
+      where: { cpf: createUserDto.cpf } 
+    });
+
     if (existingUser) {
       throw new ConflictException('CPF já cadastrado na plataforma.');
     }
 
+    // Criptografia da senha
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
-    const newUser = this.userRepo.create({
+    // Cria o objeto do usuário
+    const newUser = this.usersRepository.create({
       name: createUserDto.name,
       cpf: createUserDto.cpf,
       password: hashedPassword,
-      wallet: new Wallet() // Cria carteira automaticamente
+      wallet: new Wallet() // A mágica: Cria a carteira automaticamente aqui
     });
 
     try {
-      const savedUser = await this.userRepo.save(newUser);
+      // Salva no banco
+      const savedUser = await this.usersRepository.save(newUser);
+      
+      // Remove a senha do retorno para segurança
       const { password, ...result } = savedUser;
       return result;
+
     } catch (error) {
-      console.error("ERRO REAL DO BANCO:", error); // <--- O X-9
-      throw new BadRequestException('Erro ao criar usuário.');
+      console.error("ERRO REAL DO BANCO:", error);
+      throw new BadRequestException('Erro ao criar usuário. Verifique os dados.');
     }
   }
 
-  // 2. Busca para o Login (Retorna null se não achar, para evitar erros)
+  // 2. Busca por CPF (Unificado e corrigido)
+  // Útil para login e para validações internas
   async findByCpf(cpf: string): Promise<User | null> {
-    return this.userRepo.findOne({ where: { cpf }, relations: ['wallet'] });
-  }
-  
-  // 3. Busca Perfil pelo ID
-  async findOne(id: string) {
-     return this.userRepo.findOne({ where: { id }, relations: ['wallet'] });
-  }
-
-  // 4. ADMIN: Lista todos os usuários
-  findAll() {
-    return this.userRepo.find({ relations: ['wallet'] });
-  }
-
-  // 5. ADMIN: Calcula estatísticas do cassino
-  async getSystemStats() {
-    const users = await this.userRepo.find({ relations: ['wallet'] });
-    
-    // Total nas mãos dos jogadores
-    const totalPlayerBalance = users.reduce((acc, user) => acc + Number(user.wallet.balance), 0);
-    
-    return {
-      totalUsers: users.length,
-      totalPlayerBalance,
-      houseProfit: 10000 - totalPlayerBalance // Exemplo: Caixa inicial de 10k - Passivo
-    };
-  }
-
-  // 6. SETUP: Promove um CPF para virar Dono (Admin)
-  async promoteToAdmin(cpf: string) {
-    const user = await this.userRepo.findOne({ where: { cpf } });
-    if (!user) {
-        throw new BadRequestException('Usuário não encontrado para promoção.');
-    }
-    user.isAdmin = true;
-    return this.userRepo.save(user);
+    return this.usersRepository.findOne({ 
+      where: { cpf: cpf },
+      relations: ['wallet'] // Traz a carteira junto (importante para ver saldo)
+    });
   }
 }
