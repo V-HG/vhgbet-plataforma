@@ -7,48 +7,54 @@ import { AuthGuard } from '@nestjs/passport';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // ROTA PÚBLICA: Cadastro
+  // 1. ROTA PÚBLICA: Cadastro
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
 
-  // ROTA PROTEGIDA: Meu Perfil
+  // 2. ROTA PROTEGIDA: Meu Perfil
   @UseGuards(AuthGuard('jwt'))
   @Get('profile')
   getProfile(@Request() req) {
-    return this.usersService.findOne(req.user.userId);
+    // CORREÇÃO: O 'cpf' vem do usuário logado (req.user)
+    // Buscamos no banco para garantir que o saldo (wallet) venha atualizado
+    return this.usersService.findByCpf(req.user.cpf);
   }
 
-  // ROTA ADMIN: Estatísticas
+  // 3. ROTA ADMIN: Estatísticas
   @UseGuards(AuthGuard('jwt'))
   @Get('admin/stats')
   async getStats(@Request() req) {
-    if (!req.user.isAdmin) { 
-        throw new UnauthorizedException('Apenas o Dono pode ver isso.'); 
+    // Verifica se é admin (propriedade vem do Token ou do Banco)
+    const user = await this.usersService.findByCpf(req.user.cpf);
+    
+    if (!user || !user.isAdmin) { 
+        throw new UnauthorizedException('Acesso negado: Apenas para o Dono.'); 
     }
     return this.usersService.getSystemStats();
   }
 
-  // ROTA ADMIN: Lista de Usuários
+  // 4. ROTA ADMIN: Lista de Usuários
   @UseGuards(AuthGuard('jwt'))
   @Get('admin/list')
   async getAllUsers(@Request() req) {
-    if (!req.user.isAdmin) {
-        throw new UnauthorizedException('Sai daqui, curioso!');
+    const user = await this.usersService.findByCpf(req.user.cpf);
+
+    if (!user || !user.isAdmin) {
+        throw new UnauthorizedException('Sai daqui, curioso! Apenas Admin.');
     }
     return this.usersService.findAll();
   }
 
-  // --- ROTA DE CONFIGURAÇÃO (USE UMA VEZ E DEPOIS APAGUE) ---
-  // Transforma um CPF em Admin
-  // Exemplo de uso no navegador: http://localhost:3000/users/setup-admin/12345678900
-// ... (outros códigos acima)
-
-  // ROTA DE EMERGÊNCIA PARA VIRAR ADMIN
+  // 5. ROTA DE EMERGÊNCIA (Para você virar Admin)
+  // Use no navegador: https://seu-site.onrender.com/users/setup-admin/SEU_CPF
   @Get('setup-admin/:cpf')
   async setupAdmin(@Param('cpf') cpf: string) {
-    await this.usersService.promoteToAdmin(cpf); // Essa função muda no banco
-    return { message: `SUCESSO: O CPF ${cpf} agora é o CHEFÃO! Faça logout e login novamente.` };
+    await this.usersService.promoteToAdmin(cpf);
+    return { 
+        message: `SUCESSO SUPREMO: O CPF ${cpf} agora é ADMIN!`,
+        instruction: "Faça Logout e Login no App para ver o painel novo."
+    };
   }
 }
